@@ -39,18 +39,9 @@ class Camera:
         self.zoom = 1.0
         self.x = SCREEN_WIDTH // 2
         self.y = SCREEN_HEIGHT // 2
-        self.world_size = INITIAL_WORLD_SIZE
 
     def apply_zoom(self, dt):
-        old_zoom = self.zoom
         self.zoom = max(MIN_ZOOM, self.zoom * (ZOOM_SPEED ** dt))
-        # Expand world size as we zoom out
-        zoom_ratio = old_zoom / self.zoom
-        self.world_size = min(MAX_WORLD_SIZE, self.world_size * zoom_ratio)
-
-    def get_world_bounds(self):
-        half_size = self.world_size / 2
-        return (-half_size, -half_size, half_size, half_size)
 
     def world_to_screen(self, x, y):
         # Convert world coordinates to screen coordinates
@@ -84,11 +75,6 @@ class Player:
         if keys[pygame.K_s]: self.y += self.speed
         if keys[pygame.K_a]: self.x -= self.speed
         if keys[pygame.K_d]: self.x += self.speed
-        
-        # Keep player within world bounds
-        world_left, world_top, world_right, world_bottom = camera.get_world_bounds()
-        self.x = max(world_left + self.radius, min(world_right - self.radius, self.x))
-        self.y = max(world_top + self.radius, min(world_bottom - self.radius, self.y))
 
     def shoot(self):
         current_time = pygame.time.get_ticks()
@@ -119,26 +105,15 @@ class Player:
                          int(self.radius * camera.zoom))
 
 class Enemy:
-    def __init__(self, camera):
+    def __init__(self, camera, player):
         self.radius = 15
-        world_left, world_top, world_right, world_bottom = camera.get_world_bounds()
         
-        # Spawn enemies from outside the visible area but inside world bounds
-        side = random.randint(0, 3)
-        margin = 50  # Distance outside visible area to spawn
-
-        if side == 0:  # Top
-            self.x = random.uniform(world_left, world_right)
-            self.y = world_top - margin
-        elif side == 1:  # Right
-            self.x = world_right + margin
-            self.y = random.uniform(world_top, world_bottom)
-        elif side == 2:  # Bottom
-            self.x = random.uniform(world_left, world_right)
-            self.y = world_bottom + margin
-        else:  # Left
-            self.x = world_left - margin
-            self.y = random.uniform(world_top, world_bottom)
+        # Spawn enemies in a circle around the player
+        spawn_distance = 800  # Distance from player to spawn enemies
+        angle = random.uniform(0, 2 * math.pi)
+        
+        self.x = player.x + math.cos(angle) * spawn_distance
+        self.y = player.y + math.sin(angle) * spawn_distance
         
         self.speed = ENEMY_SPEED
 
@@ -271,17 +246,16 @@ def main():
 
         # Spawn enemies
         if pygame.time.get_ticks() - enemy_spawn_timer > 1000:  # Spawn enemy every second
-            enemies.append(Enemy(camera))
+            enemies.append(Enemy(camera, player))
             enemy_spawn_timer = pygame.time.get_ticks()
 
         # Update projectiles
         for projectile in player.projectiles[:]:
             projectile.move()
-            # Remove projectiles that are far outside world bounds
-            world_left, world_top, world_right, world_bottom = camera.get_world_bounds()
-            margin = 100
-            if (projectile.x < world_left - margin or projectile.x > world_right + margin or 
-                projectile.y < world_top - margin or projectile.y > world_bottom + margin):
+            # Remove projectiles that are too far from the player
+            dx = projectile.x - player.x
+            dy = projectile.y - player.y
+            if math.sqrt(dx * dx + dy * dy) > 2000:  # Remove if more than 2000 units away
                 player.projectiles.remove(projectile)
 
         # Update enemies

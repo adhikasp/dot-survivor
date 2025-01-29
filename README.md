@@ -2,6 +2,10 @@
 
 A minimalist survival game inspired by Vampire Survivors, built with Pygame.
 
+![Game Screenshot](docs/play.png)
+
+![Game Screenshot](docs/upgrade.png)
+
 ## Description
 
 Dot Survivor is a simple 2D survival game where you control a blue dot trying to survive waves of red enemy dots. The game features:
